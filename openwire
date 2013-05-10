@@ -1,0 +1,582 @@
+#!/usr/bin/env php
+
+<?php
+
+
+/*
+
+OpenWire Framework 
+Copyright 2013 OpenWire Security
+Version: 1.1.3
+Version Commit Date: 04/19/13
+
+Credits to AntiPaste for the original 0x0F Framework
+
+*/
+
+
+$framework = new Framework;
+$framework->run();
+
+// include "core/main.php";
+
+class Framework {
+
+
+// Start Configuration
+const userAgent = 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/10.04 Chromium/17.0.963.56 Chrome/17.0.963.56 Safari/535.11';
+const threads = 10;
+const regexURL = '#^(https?://)?[a-zA-Z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}$#';
+const regexPath = '#^[a-zA-Z0-9\.\-_~\!\$&\'\(\)\*\+,;\=\:@/]+$#';
+// End Configuration
+
+
+
+private $module, $defaultVariables, $modType;
+protected $time, $queries, $currentThread, $threadArray, $variables, $framework, $libs;
+
+
+// Start Construct
+public function __construct()
+{
+    $this->libs = array();
+    $this->queries = 0;
+    $this->framework = $this;
+    $this->time = microtime(true);
+    $this->defaultVariables = array(
+            'target' => array('required' => true, 'description' => 'The target host (ex. www.google.com)', 'match' => self::regexURL),
+    );
+}
+// End Construct
+
+
+
+// Start Menu
+public function run()
+{
+
+    $liblist = $this->preloadLibs();
+    foreach($liblist as $lib)
+        $this->loadLibrary(substr($lib, 5, -10));
+    $this->preloadExploits();
+    $this->preloadPayloads();
+    $this->preloadAux();
+    $this->outputHeader();
+    $line = '';
+    $exitCommands = array('quit', 'exit');
+
+    do {
+          
+          $prompt1 = $this->libs['colours']->cstring("Openwire", "white");
+          $prompt2 = $this->libs['colours']->cstring("Framework: ", "blue");
+          $prompt = "$prompt1 $prompt2";
+          $line = readline($prompt);
+          $commands = explode(' ', $line);
+              if (empty($commands) || in_array($commands[0], $exitCommands)) continue;
+              switch ($commands[0]) {
+
+           case 'help':
+              $this->showUsage(); break;
+
+           case 'list':
+           case 'show':
+               if (empty($commands[1])) $this->showUsage();
+               else if ($commands[1] == 'exploits') $this->listExploits();
+               else if ($commands[1] == 'payloads') $this->listPayloads();
+               else if ($commands[1] == 'aux') $this->listAux();
+               else if ($commands[1] == 'variables') $this->showVariables();
+               else $this->showUsage(); break;
+
+           case 'load':
+               if (empty($commands[1])) $this->showUsage();
+               else if($this->setModType($commands[1])){ 
+               if(count($commands) > 2) $this->loadModule($commands[2]);
+               else $this->showUsage();} break;
+
+           case 'set':
+               if (empty($commands[1]) || empty($commands[2])) $this->showUsage();
+               $this->setValue($commands[1], $commands[2]); break;
+
+           case 'libs':
+                $this->listLibraries(); break;
+
+           // Still a work in progress ;)
+          //  case 'ruby':
+               // exec("ruby ../OpenWireRuby/openframe");
+
+           case 'check':
+                $this->checkExploit(); break;
+
+           case 'exploit':
+                $this->runExploit(); break;
+
+           case 'clear':
+           case 'cls':
+                $this->clearScreen(); break;
+
+           case 'banner':
+                $this->outputHeader(); break;
+
+           default:
+                echo $this->libs['colours']->cstring("\tERROR: ", "red");
+                echo "{$line} is not a valid command\n";
+           }
+
+           readline_add_history($line);
+      } while (!in_array($line, $exitCommands));
+}
+// End  Menu
+
+
+
+// Start Header
+public function outputHeader()
+{
+
+    $this->framework->clearScreen();
+
+    echo "\n";
+    echo $this->libs['colours']->cstring("\t  _|_|                                  _|          _|  _|                     \n", "purple");
+    echo $this->libs['colours']->cstring("\t_|    _|  _|_|_|      _|_|    _|_|_|    _|          _|      _|  _|_|    _|_|   \n", "purple");
+    echo $this->libs['colours']->cstring("\t_|    _|  _|    _|  _|_|_|_|  _|    _|  _|    _|    _|  _|  _|_|      _|_|_|_| \n", "purple");
+    echo $this->libs['colours']->cstring("\t_|    _|  _|    _|  _|        _|    _|    _|  _|  _|    _|  _|        _|       \n", "purple");
+    echo $this->libs['colours']->cstring("\t  _|_|    _|_|_|      _|_|_|  _|    _|      _|  _|      _|  _|          _|_|_| \n", "purple");
+    echo $this->libs['colours']->cstring("\t          _|                                                                   \n", "purple");
+    echo $this->libs['colours']->cstring("\t          _|                                                                   \n\n", "purple");
+    echo $this->libs['colours']->cstring("\t                           ~  OpenWire Framework ~            \n", "blue");
+    echo $this->libs['colours']->cstring("Current Status: ", "white");
+    echo $this->libs['colours']->cstring("BETA\n", "blue");
+    echo $this->libs['colours']->cstring("Current Version: ", "white");
+    echo $this->libs['colours']->cstring("1.1.0\n\n\n", "blue");
+
+    return true;
+}
+// End Header
+
+
+
+// Start Help
+private function showUsage()
+{
+
+    echo "\n\n";
+    echo $this->libs['colours']->cstring(" \t            OpenWire Framework\n", "blue");
+    echo $this->libs['colours']->cstring("\t List of commands and description of usage\n\n\n", "purple");
+
+    echo $this->libs['colours']->cstring(" \thelp", "white");
+    echo $this->libs['colours']->cstring("                        - Display this list\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tclear/cls", "white");
+    echo $this->libs['colours']->cstring("                   - Clears the Screen\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tlibs", "white");
+    echo $this->libs['colours']->cstring("                        - List current libraries\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tbanner", "white");
+    echo $this->libs['colours']->cstring("                      - Displays the Banner\n\n", "blue");
+
+    // echo $this->libs['colours']->cstring(" \truby", "white");
+    // echo $this->libs['colours']->cstring("                        - Execute Ruby Modules (BETA)\n\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tshow/list exploits", "white");
+    echo $this->libs['colours']->cstring("          - List current exploit modules\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tshow/list payloads", "white");
+    echo $this->libs['colours']->cstring("          - List current payload modules\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tshow/list aux", "white");
+    echo $this->libs['colours']->cstring("               - List current auxiliary modules\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tshow/list variables", "white");
+    echo $this->libs['colours']->cstring("         - Show the global and exploit specific variables\n\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tuse/load exploit <exploit>", "white");
+    echo $this->libs['colours']->cstring("  - Load an exploit module\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tuse/load payload <payload>", "white");
+    echo $this->libs['colours']->cstring("  - Load a payload module\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tuse/load aux <aux>", "white");
+    echo $this->libs['colours']->cstring("          - Load an auxiliary module\n\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tset <variable> <value>", "white");
+    echo $this->libs['colours']->cstring("      - Set a variable to value (ex. target host)\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tshow variables", "white");
+    echo $this->libs['colours']->cstring("              - Show the global and exploit specific variables\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tview", "white");
+    echo $this->libs['colours']->cstring("                        - Show currently set variable values\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \tcheck", "white");
+    echo $this->libs['colours']->cstring("                       - Check if the target is vulnerable to currently loaded exploit\n", "blue");
+
+    echo $this->libs['colours']->cstring(" \texploit", "white");
+    echo $this->libs['colours']->cstring("                     - Run the currently loaded exploit module\n\n", "blue");
+
+    return true;
+}
+// End Help
+
+
+
+// Start Module Functions
+private function preloadExploits()
+{
+    $files = glob("modules/exploit/*.php");
+    foreach ($files as $file) require_once $file;
+    return true;
+}
+private function preloadPayloads()
+{
+    $files = glob('modules/payload/*.php');
+    foreach ($files as $file) require_once $file;
+    return true;
+}
+private function preloadAux()
+{
+    $files = glob('modules/aux/*.php');
+    foreach ($files as $file) require_once $file;
+    return true;
+}
+private function verifyModule()
+{
+    if (!is_object($this->framework->module)) {
+        echo $this->libs['colours']->cstring("\n\n\tNo Module Defined", "blue");
+        return false;
+    }
+    return true;
+}
+private function loadModule($module)
+{
+    if (!file_exists("modules/$this->modType/{$module}.php")) {
+            echo $this->libs['colours']->cstring("\n\n\t[ ", "white");
+            echo $this->libs['colours']->cstring("*", "red");
+            echo $this->libs['colours']->cstring(" ] ", "white");
+            echo $this->libs['colours']->cstring("{$module} is not a valid module\n\n", "blue");
+            return false;
+    }
+    $this->module = null;
+    require_once "modules/$this->modType/{$module}.php";
+    $class = "\\".ucfirst($this->modType)."\\{$module}";
+    $this->module = new $class($this);
+
+    if (!is_object($this->module)) {
+            echo $this->libs['colours']->cstring("\n\n\t[ ", "white");
+            echo $this->libs['colours']->cstring("*", "red");
+            echo $this->libs['colours']->cstring(" ] ", "white");
+            echo $this->libs['colours']->cstring("Error loading module {$module}\n\n", "blue");
+            return false;
+    }   
+    $this->variables = array_merge($this->defaultVariables, $this->module->variables);
+            echo $this->libs['colours']->cstring("\n\n\t[ ", "white");
+            echo $this->libs['colours']->cstring("*", "green");
+            echo $this->libs['colours']->cstring(" ] ", "white");
+            echo $this->libs['colours']->cstring("{$this->module->name} loaded\n\n", "green");
+            return true;
+}
+private function listExploits()
+{
+    $this->preloadExploits();
+    $classes = get_declared_classes();
+    foreach ($classes as $class) {
+            preg_match('#(exploit\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $exploit = new $matches[1]($this);
+            echo $this->libs['colours']->cstring("\n\n            OpenWire Framework\n", "blue");
+            echo $this->libs['colours']->cstring("      List of all Exploit Modules\n\n", "purple");
+            echo $this->libs['colours']->cstring("\t{$exploit->name} ", "white");
+            echo $this->libs['colours']->cstring("- {$exploit->description}\n\n", "blue");
+            unset($exploit);
+    }
+    return true;
+}
+private function listPayloads()
+{
+    $this->preloadPayloads();
+    $classes = get_declared_classes();
+    foreach ($classes as $class) {
+            preg_match('#(payload\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $payload = new $matches[1]($this);
+            echo $this->libs['colours']->cstring("\n\n            OpenWire Framework\n", "blue");
+            echo $this->libs['colours']->cstring("      List of all Payload Modules\n\n", "purple");
+            echo $this->libs['colours']->cstring("\t{$payload->name} ", "white");
+            echo $this->libs['colours']->cstring("- {$payload->description}\n\n", "blue");
+            unset($payload);
+    }
+    return true;
+}
+private function listAux()
+{
+    $this->preloadAux();
+    $classes = get_declared_classes();
+    foreach ($classes as $class) {
+            preg_match('#(aux\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $aux = new $matches[1]($this);
+            echo $this->libs['colours']->cstring("\n\n            OpenWire Framework\n", "blue");
+            echo $this->libs['colours']->cstring("      List of all Auxiliary Modules\n\n", "purple");
+            echo $this->libs['colours']->cstring("\t{$aux->name} ", "white");
+            echo $this->libs['colours']->cstring("- {$aux->description}\n\n", "blue");
+            unset($aux);
+    }
+    return true;
+}
+private function listType()
+{
+    return $this->modType;
+}
+// End Module Functions
+
+
+
+// Start Library Functions
+private function preloadLibs()
+{
+    $lib_files = array();
+    $libs = glob('libs/*.php');
+    for($i = 0; $i < count($libs); $i++)
+    {
+        $lib_files[$i] = $libs[$i];
+        require_once $libs[$i];
+    }
+    return $lib_files;
+}
+private function loadLibrary($lib)
+{
+    if (!file_exists("libs/{$lib}.class.php")) {
+        echo "OpenWire: {$lib} is not a valid library\n";
+        return false;
+    }
+    require_once "libs/{$lib}.class.php";
+    $class = "\\Libraries\\{$lib}";
+    $this->libs[$lib] = new $class($this);
+
+    if (!is_object($this->libs[$lib])) {
+        echo "OpenWire: Error loading library {$lib}\n";
+        return false;
+    }
+    return true;
+}
+private function listLibraries()
+{
+    $this->preloadLibs();
+    $classes = get_declared_classes();
+    foreach ($classes as $class) {
+            preg_match('#(Libraries\\\.*)#', $class, $matches);
+            if (empty($matches[1])) continue;
+            $lib = new $matches[1]($this);
+            echo $this->libs['colours']->cstring("\t{$lib->name} - {$lib->description}\n", "blue");
+            unset($module);
+    }
+    return true;
+}
+// End Library Functions
+
+
+
+//  Start Variable Functions
+private function verifyVariables()
+{
+    foreach ($this->variables as $key => $data) {
+            if ($data['required'] && empty($this->module->$key)) {
+                    echo $this->libs['colours']->cstring("\n\tMissing required variable: ", "blue");
+                    echo $this->libs['colours']->cstring("{$key}\n\n", "red");
+                    return false;
+            }
+            if (!$data['required'] && empty($this->module->$key)) {
+                    $this->module->$key = $this->variables[$key]['default'];
+            }
+    }
+    return true;
+}
+private function showVariables()
+{
+    if(!$this->verifyModule()) return false;
+    $this->verifyVariables();
+    foreach($this->variables as $key => $variable)
+    {
+        $required = ($variable['required'] ? '*' : ' ');
+        echo $this->libs['colours']->cstring("\t{$required} ", "red");
+        echo $this->libs['colours']->cstring("{$key}", "white");
+        echo " => ";
+        if(isset($this->module->$key))
+            echo $this->libs['colours']->cstring($this->module->$key."", "green");
+        else
+            echo $this->libs['colours']->cstring("default", "blue");
+        echo " => ";
+        echo $this->libs['colours']->cstring("{$variable['description']}\n", "purple");
+    }
+        echo $this->libs['colours']->cstring("\n\n\t*", "red");
+        echo $this->libs['colours']->cstring(" = ", "white");
+        echo $this->libs['colours']->cstring("required\n\n", "blue");
+}
+private function variableExists($variable)
+{
+    $exists = in_array($variable, array_keys($this->variables));
+    return $exists;
+}
+private function setValue($variable, $value)
+{
+    if (!$this->verifyModule()) return false;
+    if (!$this->variableExists($variable)) {
+            echo "OpenWire: Variable {$variable} doesn't exist\n";
+            return false;
+    }
+
+    $this->module->$variable = $value;
+    echo $this->libs['colours']->cstring("\n\n\t${variable} set as ", "white");
+    echo $this->libs['colours']->cstring("${value}\n\n", "blue");
+    return true;
+}
+// End Variable Functions
+
+
+
+// Start Exploit Functions
+private function checkExploit()
+{
+    if (!$this->verifyModule()) return false;
+    if (!$this->verifyVariables()) return false;
+    $this->clearThreads();
+    $vulnerable = $this->module->check();
+    if ($vulnerable) echo " The target is vulnerable\n";
+    else echo " The target is not vulnerable\n";
+    return true;
+}
+private function runExploit()
+{
+    if (!$this->verifyModule()) return false;
+    if (!$this->verifyVariables()) return false;
+    $this->clearThreads();
+    $vulnerable = $this->module->check();
+    if (!$vulnerable) {
+            echo " The target is not vulnerable\n";
+            return false;
+    }
+    echo $this->libs['colours']->cstring("\n\n\tRunning exploit...\n", "white");
+    $status = $this->module->exploit();
+    if (!$status) {
+            echo $this->libs['colours']->cstring("\n\n\tExploit Failed!\n", "green");
+            return false;
+    }
+    echo $this->libs['colours']->cstring("\n\n\tExploit successful!\n", "green");
+    return true;
+}
+// End Exploit Functions
+
+
+
+// Start Misc Functions
+protected function clearScreen()
+{
+    $characters = array(27, 91, 72, 27, 91, 50, 74);
+    foreach ($characters as $character) echo chr($character);
+    return true;
+}
+protected function getExecutionTime($message = false)
+{
+    $seconds = microtime(true) - $this->framework->time;
+    if (!$message) return $seconds;
+    switch (true) {
+            case ($seconds < 60):
+                    $seconds = round($seconds, 2);
+                    $message = "{$seconds} seconds"; break;
+
+            case ($seconds < 3600):
+                    $minutes = floor(($seconds / 60) % 60);
+                    $seconds = floor($seconds);
+                    $message = "{$minutes} minutes and {$seconds} seconds";
+                    break;
+
+            default:
+                    $hours = floor($seconds / 3600);
+                    $minutes = floor(($seconds / 60) % 60);
+                    $seconds = floor($seconds % 60);
+                    $message = "{$hours} hours, {$minutes} minutes and {$seconds} seconds";
+    }
+    return $message;
+}
+protected function getURL()
+{
+    if (!$this->verifyModule()) return false;
+    return $this->framework->module->target . $this->framework->module->path;
+}
+protected function getOutput($handle)
+{
+    return curl_multi_getcontent($handle);
+}
+protected function getCookies($output)
+{
+    preg_match_all('#^Set-Cookie:\s*([^;]+;)#mi', $output, $matches);
+    return implode(' ', $matches[1]);
+}
+protected function addThread($options)
+{
+    if (!isset($options[CURLOPT_URL])) return false;
+    $options[CURLOPT_RETURNTRANSFER] = true;
+    $this->framework->threadArray[] = $options;
+    return true;
+}
+protected function clearThreads()
+{
+    $this->framework->threadArray = array();
+}
+private function setModType($type)
+{
+    switch($type)
+    {
+        case 'aux':
+            $this->modType = 'aux';
+            break;
+
+        case 'exploit':
+            $this->modType = 'exploit';
+            break;
+
+        case 'payload':
+            $this->modType = 'payload';
+            break;
+
+        default:
+            $this->modType = null;
+            return false;
+    }
+    return true;
+}
+protected function runThreads($callback)
+{
+    $master = curl_multi_init();
+    $threadCount = count($this->framework->threadArray);
+    for ($this->framework->currentThread = 0; ($this->framework->currentThread < Framework::threads && $this->framework->currentThread < $threadCount); $this->framework->currentThread++) {
+            $ch = curl_init();
+            curl_setopt_array($ch, $this->framework->threadArray[$this->framework->currentThread]);
+            curl_multi_add_handle($master, $ch);
+    }
+    $this->framework->currentThread--;
+    do {
+            while (($execrun = curl_multi_exec($master, $running)) == CURLM_CALL_MULTI_PERFORM);
+            if ($execrun != CURLM_OK) break;
+            while ($done = curl_multi_info_read($master)) {
+                    unset($this->framework->threadArray[$this->framework->currentThread]);
+                    $this->framework->queries++;
+                    $this->framework->currentThread++;
+                    $this->framework->module->$callback($done['handle']);
+                    if (isset($this->framework->threadArray[$this->framework->currentThread])) {
+                            $ch = curl_init();
+                            curl_setopt_array($ch, $this->framework->threadArray[$this->framework->currentThread]);
+                            curl_multi_add_handle($master, $ch);
+                    }
+                    curl_multi_remove_handle($master, $done['handle']);
+            }
+    } while ($running);
+    curl_multi_close($master);
+    return true;
+}
+// End Misc Functions
+
+
+}
+
+?>
