@@ -27,6 +27,21 @@ class pscan extends Framework {
            
 	}
 
+	public function getName()
+	{
+		return $this->name;
+	}
+
+	public function getDesc()
+	{
+		return $this->description;
+	}
+
+	public function getVars()
+	{
+		return $this->variables;
+	}
+
 	private function loadModule()
 	{
 		$this->setModule(1, $this->module_name);

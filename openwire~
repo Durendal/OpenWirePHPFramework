@@ -44,7 +44,9 @@ public function __construct()
     $this->queries = 0;
     $this->framework = $this;
     $this->time = microtime(true);
-    
+    $this->defaultVariables = array(
+            'target' => array('required' => true, 'description' => 'The target host (ex. www.google.com)', 'match' => self::regexURL),
+    );
     $this->base = getcwd();
 }
 // End Construct
@@ -61,7 +63,9 @@ public function run()
     $corelist = $this->preloadCore();
     foreach($corelist as $core)
         $this->loadCore(substr($core, 5, -10));
-    $this->core['modules']->preloadModules();
+    $this->core['modules']->preloadExploits();
+    $this->core['modules']->preloadPayloads();
+    $this->core['modules']->preloadAux();
     $this->core['main']->outputHeader();
     $line = '';
     $exitCommands = array('quit', 'exit');
@@ -82,19 +86,21 @@ public function run()
            case 'list':
            case 'show':
                if (empty($commands[1])) $this->core['main']->showUsage();
-               else if ($this->core['modules']->setModType($commands[1])) $this->core['modules']->listModules();
-               else if ($commands[1] == 'variables') $this->core['modules']->showVariables();
+               else if ($commands[1] == 'exploits') $this->core['modules']->listExploits();
+               else if ($commands[1] == 'payloads') $this->core['modules']->listPayloads();
+               else if ($commands[1] == 'aux') $this->core['modules']->listAux();
+               else if ($commands[1] == 'variables') $this->showVariables();
                else $this->core['main']->showUsage(); break;
 
            case 'load':
                if (empty($commands[1])) $this->core['main']->showUsage();
-               else if($this->core['modules']->setModType($commands[1])){ 
+               else if($this->setModType($commands[1])){ 
                if(count($commands) > 2) $this->core['modules']->loadModule($commands[2]);
                else $this->core['main']->showUsage();} break;
 
            case 'set':
                if (empty($commands[1]) || empty($commands[2])) $this->core['main']->showUsage();
-               $this->core['modules']->setValue($commands[1], $commands[2]); break;
+               $this->setValue($commands[1], $commands[2]); break;
 
            case 'libs':
                 $this->listLibraries(); break;
@@ -212,6 +218,66 @@ private function listCore()
 }
 // End Library Functions
 
+
+
+//  Start Variable Functions
+private function verifyVariables()
+{
+    foreach ($this->variables as $key => $data) {
+            if ($data['required'] && empty($this->core['modules']->module->$key)) {
+                    echo $this->libs['colours']->cstring("\n\tMissing required variable: ", "blue");
+                    echo $this->libs['colours']->cstring("{$key}\n\n", "red");
+                    return false;
+            }
+            if (!$data['required'] && empty($this->core['modules']->module->$key)) {
+                    $this->core['modules']->module->$key = $this->variables[$key]['default'];
+            }
+    }
+    return true;
+}
+private function showVariables()
+{
+    if(!$this->core['modules']->verifyModule()) return false;
+    $this->verifyVariables();
+    foreach($this->variables as $key => $variable)
+    {
+        $required = ($variable['required'] ? '*' : ' ');
+        echo $this->libs['colours']->cstring("\t{$required} ", "red");
+        echo $this->libs['colours']->cstring("{$key}", "white");
+        echo " => ";
+        if(isset($this->core['modules']->module->$key))
+            echo $this->libs['colours']->cstring($this->core['modules']->module->$key."", "green");
+        else
+            echo $this->libs['colours']->cstring("default", "blue");
+        echo " => ";
+        echo $this->libs['colours']->cstring("{$variable['description']}\n", "purple");
+    }
+        echo $this->libs['colours']->cstring("\n\n\t*", "red");
+        echo $this->libs['colours']->cstring(" = ", "white");
+        echo $this->libs['colours']->cstring("required\n\n", "blue");
+}
+private function variableExists($variable)
+{
+    $exists = in_array($variable, array_keys($this->variables));
+    return $exists;
+}
+private function setValue($variable, $value)
+{
+    if (!$this->$this->core['modules']->verifyModule()) return false;
+    if (!$this->variableExists($variable)) {
+            echo "OpenWire: Variable {$variable} doesn't exist\n";
+            return false;
+    }
+
+    $this->core['modules']->module->$variable = $value;
+    echo $this->libs['colours']->cstring("\n\n\t${variable} set as ", "white");
+    echo $this->libs['colours']->cstring("${value}\n\n", "blue");
+    return true;
+}
+// End Variable Functions
+
+
+
 // Start Exploit Functions
 private function checkExploit()
 {
@@ -226,16 +292,15 @@ private function checkExploit()
 private function runExploit()
 {
     if (!$this->core['modules']->verifyModule()) return false;
-    if (!$this->core['modules']->verifyVariables()) return false;
+    if (!$this->verifyVariables()) return false;
     $this->clearThreads();
-    $mod = $this->core['modules']->getModule();
-    $vulnerable = $mod->check();
+    $vulnerable = $this->core['modules']->module->check();
     if (!$vulnerable) {
             echo " The target is not vulnerable\n";
             return false;
     }
     echo $this->libs['colours']->cstring("\n\n\tRunning exploit...\n", "white");
-    $status = $mod->exploit();
+    $status = $this->core['modules']->module->exploit();
     if (!$status) {
             echo $this->libs['colours']->cstring("\n\n\tExploit Failed!\n", "green");
             return false;

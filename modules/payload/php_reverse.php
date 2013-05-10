@@ -32,7 +32,17 @@
                     );
                    
                 }
-         
+                
+                public function getName()
+                {
+                    return $this->name;
+                }
+
+                public function getDesc()
+                {
+                    return $this->description;
+                }
+
                 private function loadModule()
                 {
                         $this->setModule(1, $this->module_name);
