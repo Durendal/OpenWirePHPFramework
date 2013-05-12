@@ -231,5 +231,47 @@ class webot extends Framework
 		$pattern = '/^(([\w]+:)?\/\/)?(([\d\w]|%[a-fA-f\d]{2,2})+(:([\d\w]|%[a-fA-f\d]{2,2})+)?@)?([\d\w][-\d\w]{0,253}[\d\w]\.)+[\w]{2,4}(:[\d]+)?(\/([-+_~.\d\w]|%[a-fA-f\d]{2,2})*)*(\?(&amp;?([-+_~.\d\w]|%[a-fA-f\d]{2,2})=?)*)?(#([-+_~.\d\w]|%[a-fA-f\d]{2,2})*)?$/';
 		return preg_match($pattern, $url);
     }
+
+    protected function addThread($options)
+	{
+    	if (!isset($options[CURLOPT_URL])) return false;
+    	$options[CURLOPT_RETURNTRANSFER] = true;
+    	$this->framework->threadArray[] = $options;
+    	return true;
+	}
+	protected function clearThreads()
+	{
+    	$this->framework->threadArray = array();
+	}
+
+	protected function runThreads($callback)
+	{
+    	$master = curl_multi_init();
+   		$threadCount = count($this->framework->threadArray);
+    	for ($this->framework->currentThread = 0; ($this->framework->currentThread < Framework::threads && $this->framework->currentThread < $threadCount); $this->framework->currentThread++) {
+            $ch = curl_init();
+            curl_setopt_array($ch, $this->framework->threadArray[$this->framework->currentThread]);
+            curl_multi_add_handle($master, $ch);
+    }
+    	$this->framework->currentThread--;
+    	do {
+            while (($execrun = curl_multi_exec($master, $running)) == CURLM_CALL_MULTI_PERFORM);
+            if ($execrun != CURLM_OK) break;
+            while ($done = curl_multi_info_read($master)) {
+                    unset($this->framework->threadArray[$this->framework->currentThread]);
+                    $this->framework->queries++;
+                    $this->framework->currentThread++;
+                    $this->framework->module->$callback($done['handle']);
+                    if (isset($this->framework->threadArray[$this->framework->currentThread])) {
+                            $ch = curl_init();
+                            curl_setopt_array($ch, $this->framework->threadArray[$this->framework->currentThread]);
+                            curl_multi_add_handle($master, $ch);
+                    }
+                    curl_multi_remove_handle($master, $done['handle']);
+            }
+    	} while ($running);
+    	curl_multi_close($master);
+    	return true;
+	}
 }
 

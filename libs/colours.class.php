@@ -5,17 +5,19 @@ use \Framework as Framework;
 /*
 PHP Terminal Colour class from: http://www.if-not-true-then-false.com/2010/php-class-for-coloring-php-command-line-cli-scripts-output-php-output-colorizing-using-bash-shell-colors/
 */
-	class colours extends Framework
-	{
-		private $foreground_colours = array();
-		private $background_colours = array();
- 		protected $framework, $name, $description;
-		public function __construct($framework) {
+class colours extends Framework
+{
+	private $foreground_colours = array();
+	private $background_colours = array();
+	protected $framework, $name, $description;
+
+
+	public function __construct($framework) {
 
 		$this->framework = $framework;
-        $this->name = 'colours';
-        $this->description = 'Library to provide text colouring in php CLI';
-                
+	    $this->name = 'colours';
+	    $this->description = 'Library to provide text colouring in php CLI';
+	            
 		// Set up shell colours
 		$this->foreground_colours['black'] = '0;30';
 		$this->foreground_colours['dark_gray'] = '1;30';
@@ -33,7 +35,7 @@ PHP Terminal Colour class from: http://www.if-not-true-then-false.com/2010/php-c
 		$this->foreground_colours['yellow'] = '1;33';
 		$this->foreground_colours['light_gray'] = '0;37';
 		$this->foreground_colours['white'] = '1;37';
- 
+
 		$this->background_colours['black'] = '40';
 		$this->background_colours['red'] = '41';
 		$this->background_colours['green'] = '42';
@@ -44,11 +46,11 @@ PHP Terminal Colour class from: http://www.if-not-true-then-false.com/2010/php-c
 		$this->background_colours['light_gray'] = '47';
 		$this->background_colours['gray'] = '48';
 	}
- 
-		// Returns coloured string
+
+	// Returns coloured string
 	public function cstring($string, $foreground_colour = null, $background_colour = null) {
 		$coloured_string = "";
- 
+
 		// Check if given foreground colour found
 		if (isset($this->foreground_colours[$foreground_colour])) {
 			$coloured_string .= "\033[" . $this->foreground_colours[$foreground_colour] . "m";
@@ -57,18 +59,18 @@ PHP Terminal Colour class from: http://www.if-not-true-then-false.com/2010/php-c
 		if (isset($this->background_colours[$background_colour])) {
 			$coloured_string .= "\033[" . $this->background_colours[$background_colour] . "m";
 		}
- 
+
 		// Add string and end colouring
 		$coloured_string .=  $string . "\033[0m";
- 
+
 		return $coloured_string;
 	}
- 
+
 	// Returns all foreground colour names
 	public function getForegroundcolours() {
 		return array_keys($this->foreground_colours);
 	}
- 
+
 	// Returns all background colour names
 	public function getBackgroundcolours() {
 		return array_keys($this->background_colours);

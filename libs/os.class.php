@@ -19,7 +19,7 @@
 #  The purpose of this class is to simplify use of basic command line operations in php     #
 #  it should aid in performing any tasks through the command line in your php script.       #
 #                                                                                           #
-#  By: Durendal                                                                             #
+#  By: Phaedrus                                                                             #
 #  Date: December 13, 2012                                                                  #
 #                                                                                           #
 #                                                                                           #

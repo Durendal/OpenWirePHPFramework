@@ -7,24 +7,24 @@ Date: February 17, 2013
 */
 namespace aux;
 use \Framework as Framework;
-     
-    
-   
+ 
+
+
 class pscan extends Framework {
-     
-       protected $framework, $name, $description, $variables, $cookie;
-    
-   	public function __construct($framework) 
-   	{
-           
-        	$this->framework = $framework;
-        	$this->name = 'pScan';
-        	$this->description = 'Simple Port Scanner';
-                   
-    	    $this->variables = array(
-                'portrange' => array('required' => false, 'description' => 'Range of ports to scan, seperated by a colon', 'default' => '0-1000'),
-            );
-           
+ 
+	protected $framework, $name, $description, $variables, $cookie;
+
+	public function __construct($framework) 
+	{
+	   
+		$this->framework = $framework;
+		$this->name = 'pScan';
+		$this->description = 'Simple Port Scanner';
+	           
+	    $this->variables = array(
+	        'portrange' => array('required' => false, 'description' => 'Range of ports to scan, seperated by a colon', 'default' => '0-1000'),
+	    );
+	   
 	}
 
 	public function getName()
@@ -115,5 +115,4 @@ class pscan extends Framework {
 		}
 	}
 }
-
 ?>
