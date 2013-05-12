@@ -207,7 +207,7 @@ class Framework {
     {
         if (!$this->core['modules']->verifyModule()) return false;
         if (!$this->core['modules']->verifyVariables()) return false;
-        $this->clearThreads();
+        $this->core['modules']->clearThreads();
         $mod = $this->core['modules']->getModule();
         $vulnerable = $mod->check();
         if (!$vulnerable) {
